@@ -1,0 +1,8 @@
+# Name,       Type, SubType,  Offset,   Size,   Flags
+# NVS partagée, comme dans les exemples officiels esp-zigbee-sdk :
+#  - namespace "zigbee"     : datasets de la stack (esp-zigbee-lib n'utilise et
+#                             n'efface que ce namespace, via nvs_erase_all) ;
+#  - namespace "watercount" : compteur et configuration de l'application.
+nvs,          data, nvs,      0x9000,   0x6000,
+phy_init,     data, phy,      0xf000,   0x1000,
+factory,      app,  factory,  0x10000,  1600K,

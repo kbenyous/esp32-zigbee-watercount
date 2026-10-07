@@ -1,0 +1,10 @@
+idf_component_register(SRCS "main.c"
+                            "app.c"
+                            "button.c"
+                            "led.c"
+                            "power_fail.c"
+                            "pulse_input.c"
+                            "storage.c"
+                            "zb_device.c"
+                       INCLUDE_DIRS "."
+                       PRIV_REQUIRES esp_driver_gpio esp_timer esp_app_format esp_system nvs_flash)

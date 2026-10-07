@@ -1,0 +1,195 @@
+menu "Water counter"
+
+    menu "Matériel"
+
+        config WC_PULSE_GPIO
+            int "GPIO de l'entrée impulsions"
+            range 0 27
+            default 10
+            help
+                GPIO recevant les impulsions du compteur. Par défaut GPIO10, qui fait
+                partie des GPIO LP (7 à 14) de l'ESP32-H2 : il pourra réveiller la puce
+                d'un deep sleep si le device passe un jour sur pile.
+
+        config WC_PULSE_ACTIVE_HIGH
+            bool "Impulsion = niveau haut (front montant)"
+            default y
+            help
+                Si activé, une impulsion est comptée sur la transition stable bas -> haut.
+                Sinon, sur la transition stable haut -> bas.
+
+        choice WC_PULSE_PULL
+            prompt "Résistance de tirage interne de l'entrée impulsions"
+            default WC_PULSE_PULL_DOWN
+            help
+                Pour un contact sec (ILS) branché entre le GPIO et 3V3, choisir pull-down.
+                Pour une sortie active (collecteur ouvert avec pull-up externe, capteur
+                à effet Hall push-pull...), choisir aucune.
+
+            config WC_PULSE_PULL_NONE
+                bool "Aucune"
+            config WC_PULSE_PULL_DOWN
+                bool "Pull-down"
+            config WC_PULSE_PULL_UP
+                bool "Pull-up"
+        endchoice
+
+        config WC_PULSE_DEBOUNCE_MS
+            int "Durée d'anti-rebond des impulsions (ms)"
+            range 10 500
+            default 30
+            help
+                Durée pendant laquelle le niveau doit être stable pour être pris en compte.
+                Limite la fréquence maximale comptée à environ 1000 / (2 * durée) Hz.
+                Minimum 10 ms : au tick FreeRTOS par défaut (100 Hz), une durée plus
+                courte serait arrondie à zéro tick.
+
+        config WC_BUTTON_GPIO
+            int "GPIO du bouton d'appairage"
+            range 0 27
+            default 9
+            help
+                GPIO9 est le bouton BOOT de l'ESP32-H2-DevKitM-1 (actif à l'état bas).
+
+        config WC_BUTTON_LONG_PRESS_MS
+            int "Durée d'appui long pour lancer l'appairage (ms)"
+            range 500 10000
+            default 2000
+
+        config WC_LED_GPIO
+            int "GPIO de la LED RGB adressable"
+            range 0 27
+            default 8
+            help
+                GPIO8 pilote la LED WS2812 de l'ESP32-H2-DevKitM-1.
+
+        config WC_LED_BRIGHTNESS
+            int "Luminosité maximale de la LED (1-255)"
+            range 1 255
+            default 32
+
+        config WC_POWER_FAIL_GPIO
+            int "GPIO de détection de coupure d'alimentation (-1 = désactivé)"
+            range -1 27
+            default -1
+            help
+                Entrée optionnelle signalant une coupure imminente (par exemple le 5 V
+                amont surveillé via un pont diviseur, l'ESP étant maintenu quelques
+                dizaines de ms par un condensateur de réserve). Sur front actif, le
+                compteur est écrit immédiatement en NVS.
+
+        config WC_POWER_FAIL_ACTIVE_LOW
+            bool "Coupure signalée par un niveau bas"
+            depends on WC_POWER_FAIL_GPIO >= 0
+            default y
+
+    endmenu
+
+    menu "Persistance du compteur"
+
+        config WC_PERSIST_EVERY_N_PULSES
+            int "Écriture NVS toutes les N impulsions"
+            range 1 10000
+            default 10
+
+        config WC_PERSIST_IDLE_TIMEOUT_S
+            int "Écriture NVS après N secondes sans nouvelle impulsion"
+            range 10 86400
+            default 600
+
+    endmenu
+
+    menu "Appairage Zigbee"
+
+        config WC_PAIRING_TIMEOUT_S
+            int "Durée maximale d'une tentative d'appairage (s)"
+            range 30 3600
+            default 180
+            help
+                Pendant cette durée, la recherche de réseau (network steering) est
+                relancée tant qu'aucun réseau ouvert n'est trouvé.
+
+        config WC_PAIRING_RETRY_S
+            int "Délai entre deux recherches de réseau (s)"
+            range 1 60
+            default 5
+
+        config WC_ZB_MIN_JOIN_LQI
+            int "LQI minimal d'un parent pour rejoindre le réseau (-1 = valeur de la lib)"
+            range -1 255
+            default 40
+            help
+                Seuil sous lequel la stack ignore un parent potentiel pendant l'appairage
+                ou le rejoin. La valeur par défaut d'esp-zigbee-lib 2.0.4 est 75, mais
+                l'ESP32-H2 rapporte des LQI bas : mesuré LQI 63 pour un RSSI de -65 dBm,
+                soit vraisemblablement LQI = RSSI + 128. Avec 75, des parents corrects
+                étaient rejetés et l'appairage comme le rejoin échouaient par intermittence.
+                40 correspond à environ -88 dBm. -1 garde la valeur de la lib.
+
+    endmenu
+
+    menu "Identité Zigbee"
+
+        config WC_ZB_MANUFACTURER_NAME
+            string "ManufacturerName (cluster Basic, 32 caractères max)"
+            default "DIY"
+            help
+                Valeur provisoire. Avec ModelIdentifier, c'est ce que Zigbee2MQTT utilise pour reconnaître
+                le device et choisir son convertisseur.
+
+        config WC_ZB_MODEL_IDENTIFIER
+            string "ModelIdentifier (cluster Basic, 32 caractères max)"
+            default "WaterCounter-H2"
+            help
+                Doit rester stable dans le temps : c'est la clé de correspondance
+                (zigbeeModel) du convertisseur Zigbee2MQTT.
+
+        config WC_ZB_HW_VERSION
+            int "HWVersion (cluster Basic)"
+            range 0 255
+            default 1
+
+        config WC_ZB_APP_VERSION
+            int "ApplicationVersion (cluster Basic)"
+            range 0 255
+            default 1
+
+        config WC_ZB_MANUFACTURER_CODE
+            hex "Code fabricant Zigbee (node descriptor et attributs de configuration)"
+            range 0x0000 0xFFFF
+            default 0x131B
+            help
+                0x131B est le code d'Espressif (EZB_ZCL_ESP_MANUF_CODE dans
+                ezbee/zcl/zcl_type.h). Il sert aussi de code fabricant
+                pour les attributs de configuration manufacturer-specific : le
+                convertisseur Zigbee2MQTT doit utiliser la même valeur.
+
+        config WC_ZB_ENDPOINT
+            int "Endpoint Zigbee"
+            range 1 240
+            default 1
+
+    endmenu
+
+    menu "Valeurs par défaut"
+
+        choice WC_DEFAULT_UNIT
+            prompt "Unité par défaut"
+            default WC_DEFAULT_UNIT_M3
+
+            config WC_DEFAULT_UNIT_LITRES
+                bool "Litres"
+            config WC_DEFAULT_UNIT_M3
+                bool "Mètres cubes"
+        endchoice
+
+        config WC_DEFAULT_PULSE_VOLUME_UL
+            int "Volume par impulsion par défaut (µL)"
+            range 1 2147483647
+            default 1000000
+            help
+                1000000 µL = 1 litre par impulsion.
+
+    endmenu
+
+endmenu
