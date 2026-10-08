@@ -114,12 +114,6 @@ static void post(const app_event_t *event)
     }
 }
 
-static void post_type(app_event_type_t type)
-{
-    app_event_t event = {.type = type};
-    post(&event);
-}
-
 static void on_pulse(void *ctx)
 {
     /* File pleine : sans conséquence, les impulsions restent comptées dans
@@ -152,7 +146,8 @@ static void on_power_fail_isr(void *ctx)
 
 static void on_timer(void *arg)
 {
-    post_type((app_event_type_t)(intptr_t)arg);
+    app_event_t event = {.type = (app_event_type_t)(intptr_t)arg};
+    post(&event);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -195,8 +190,8 @@ static void persist_counter(void)
     }
 }
 
-/* Appelé par esp_restart() (reset Zigbee, OTA futur...) avant le redémarrage. */
-static void on_shutdown(void)
+/* Écriture immédiate, impulsions pas encore traitées par la boucle comprises. */
+static void persist_now(void)
 {
     counter_add(pulse_input_take());
     persist_counter();
@@ -449,7 +444,6 @@ static void app_task(void *arg)
                 ESP_LOGW(TAG, "Pairing timed out");
                 stop_pairing_timers();
                 s_leaving_for_pairing = false;
-                zb_device_cancel_steering();
                 set_net_state(NET_NOT_PAIRED);
             }
             break;
@@ -464,8 +458,7 @@ static void app_task(void *arg)
             break;
         case APP_EVT_POWER_FAIL:
             ESP_LOGW(TAG, "Power failure detected");
-            counter_add(pulse_input_take());
-            persist_counter();
+            persist_now();
             break;
         }
     }
@@ -493,7 +486,8 @@ esp_err_t app_start(void)
     ESP_RETURN_ON_ERROR(storage_init(), TAG, "storage");
     load_counter();
     load_config();
-    ESP_RETURN_ON_ERROR(esp_register_shutdown_handler(on_shutdown), TAG, "shutdown handler");
+    /* esp_restart() (reset Zigbee, futur OTA...) appelle ce handler avant de redémarrer. */
+    ESP_RETURN_ON_ERROR(esp_register_shutdown_handler(persist_now), TAG, "shutdown handler");
 
     ESP_RETURN_ON_ERROR(led_init(CONFIG_WC_LED_GPIO, CONFIG_WC_LED_BRIGHTNESS), TAG, "led");
     set_net_state(NET_STARTING);

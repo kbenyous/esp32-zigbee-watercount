@@ -24,11 +24,6 @@
 #define ZB_ED_TIMEOUT     EZB_NWK_ED_TIMEOUT_64MIN
 #define ZB_KEEP_ALIVE_MS  4000
 
-/* Reporting par défaut de CurrentSummationDelivered, tant que le coordinateur
- * n'en configure pas un autre. */
-#define ZB_REPORT_MIN_INTERVAL_S 5
-#define ZB_REPORT_MAX_INTERVAL_S 3600
-
 #define ZB_REJOIN_RETRY_MIN_MS (10 * 1000)
 #define ZB_REJOIN_RETRY_MAX_MS (5 * 60 * 1000)
 
@@ -270,18 +265,6 @@ static void create_device(void)
     ESP_ERROR_CHECK(ezb_af_device_desc_register(dev));
 }
 
-static void setup_default_reporting(void)
-{
-    ezb_zcl_reporting_info_t info =
-        ezb_zcl_reporting_info_find(s_config.endpoint, EZB_ZCL_CLUSTER_ID_METERING, EZB_ZCL_CLUSTER_SERVER,
-                                    EZB_ZCL_ATTR_METERING_CURRENT_SUMMATION_DELIVERED_ID, EZB_ZCL_STD_MANUF_CODE);
-    if (info == EZB_ZCL_INVALID_REPORTING_INFO) {
-        ESP_LOGW(TAG, "No reporting entry for CurrentSummationDelivered, relying on coordinator configuration");
-        return;
-    }
-    ezb_zcl_reporting_info_update_default_interval(info, ZB_REPORT_MIN_INTERVAL_S, ZB_REPORT_MAX_INTERVAL_S);
-}
-
 /* ------------------------------------------------------------------------- */
 /* Évènements de la stack (contexte de la tâche Zigbee)                      */
 /* ------------------------------------------------------------------------- */
@@ -349,11 +332,6 @@ static bool app_signal_handler(const ezb_app_signal_t *app_signal)
     case EZB_BDB_SIGNAL_DEVICE_REBOOT: {
         const ezb_bdb_signal_simple_params_t *params = ezb_app_signal_get_params(app_signal);
         if (params->status == EZB_BDB_STATUS_SUCCESS) {
-            static bool reporting_configured;
-            if (!reporting_configured) {
-                setup_default_reporting();
-                reporting_configured = true;
-            }
             s_rejoin_retry_ms = ZB_REJOIN_RETRY_MIN_MS;
             zb_device_event_t event = {.type = ZB_DEVICE_EVT_STARTED, .joined = !ezb_bdb_is_factory_new()};
             if (event.joined) {
@@ -551,16 +529,6 @@ esp_err_t zb_device_start_steering(void)
     return esp_zigbee_err_to_esp(err);
 }
 
-void zb_device_cancel_steering(void)
-{
-    if (!s_ready) {
-        return;
-    }
-    esp_zigbee_lock_acquire(portMAX_DELAY);
-    ezb_bdb_cancel_steering();
-    esp_zigbee_lock_release();
-}
-
 void zb_device_leave_network(void)
 {
     if (!s_ready) {
@@ -607,14 +575,14 @@ esp_err_t zb_device_set_counter(uint64_t counter)
 
 esp_err_t zb_device_set_metering_config(const zb_device_metering_config_t *config)
 {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
     metering_format_t fmt;
     metering_format(config, &fmt);
     uint8_t unit = config->unit;
     uint32_t pulse_volume_ul = config->pulse_volume_ul;
 
-    if (!s_ready) {
-        return ESP_ERR_INVALID_STATE;
-    }
     ESP_LOGI(TAG, "Metering: unit %s, %lu uL/pulse -> multiplier %lu, divisor %lu",
              unit == ZB_DEVICE_UNIT_LITRES ? "L" : "m3", (unsigned long)pulse_volume_ul,
              (unsigned long)fmt.multiplier, (unsigned long)fmt.divisor);

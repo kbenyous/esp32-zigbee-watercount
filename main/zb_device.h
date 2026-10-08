@@ -92,8 +92,6 @@ bool zb_device_has_network(void);
 /** Lance une recherche de réseau ouvert ; résultat via ZB_DEVICE_EVT_JOINED / JOIN_FAILED. */
 esp_err_t zb_device_start_steering(void);
 
-void zb_device_cancel_steering(void);
-
 /** Quitte le réseau et efface ses informations ; fin signalée par ZB_DEVICE_EVT_LEFT. */
 void zb_device_leave_network(void);
 

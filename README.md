@@ -16,6 +16,31 @@ idf.py menuconfig        # menu "Water counter" : GPIO, persistance, identité..
 idf.py build flash monitor
 ```
 
+## Câblage
+
+| Fonction | GPIO (DevKitM-1) | Branchement |
+|---|---|---|
+| Entrée impulsions | GPIO10 | contact du compteur entre GPIO10 et **GND** |
+| Bouton d'appairage | GPIO9 | bouton BOOT de la carte |
+| LED d'état | GPIO8 | LED RGB WS2812 de la carte |
+
+L'entrée impulsions utilise le **pull-up interne** : au repos le GPIO est à
+l'état haut, la fermeture du contact le tire à GND, et l'impulsion est comptée
+sur le **front descendant**, après l'anti-rebond. Un contact vers GND est plus
+robuste qu'un contact vers 3V3 : un câble arraché ou en court-circuit avec la
+masse ne peut pas mettre le 3V3 en défaut.
+
+Le pull-up interne est faible (quelques dizaines de kΩ). Avec un câble long ou
+dans un environnement électriquement bruité, ajouter un **pull-up externe** de
+4,7 à 10 kΩ entre GPIO10 et 3V3. Le pull-up interne peut rester activé.
+
+Pour tester sans compteur, relier brièvement GPIO10 à GND : chaque contact franc
+d'au moins 30 ms, suivi d'un relâchement, compte une impulsion.
+
+Autres câblages possibles dans `menuconfig` (*Water counter → Matériel*) :
+contact vers 3V3 (pull-down, « niveau haut » activé), ou sortie active
+push-pull (aucun tirage).
+
 ## Comportement
 
 | Situation | LED |
@@ -248,7 +273,12 @@ version sur pile, il faudra :
 - `gpio_wakeup_enable()` sur l'entrée impulsions ;
 - un cluster Power Configuration (niveau de pile) ;
 - une LED éteinte par défaut et un keep-alive allongé ;
-- attention au pull interne quand le contact reste fermé (environ 70 µA en continu).
+- un pull-up consomme en continu tant que le contact reste fermé (3,3 V / R :
+  environ 0,3 mA avec 10 kΩ), ce qui arrive si le compteur s'arrête contact
+  fermé ; préférer alors une résistance plus forte ;
+- sur l'ESP32-H2, les GPIO 7 à 14 utilisés comme sources de réveil (fonction LP)
+  n'ont plus de pull-up ni de pull-down pilotables (`soc_caps.h` de l'IDF) : une
+  version en deep sleep aura besoin d'un **pull-up externe**.
 
 ## État de validation sur le matériel
 

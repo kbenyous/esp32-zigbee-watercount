@@ -13,18 +13,22 @@ menu "Water counter"
 
         config WC_PULSE_ACTIVE_HIGH
             bool "Impulsion = niveau haut (front montant)"
-            default y
+            default n
             help
-                Si activé, une impulsion est comptée sur la transition stable bas -> haut.
-                Sinon, sur la transition stable haut -> bas.
+                Désactivé (défaut) : le contact du compteur relie le GPIO à GND, et une
+                impulsion est comptée sur la transition stable haut -> bas (front
+                descendant). Activé : impulsion sur la transition stable bas -> haut,
+                pour un contact relié à 3V3 ou une sortie active à l'état haut.
 
         choice WC_PULSE_PULL
             prompt "Résistance de tirage interne de l'entrée impulsions"
-            default WC_PULSE_PULL_DOWN
+            default WC_PULSE_PULL_UP
             help
-                Pour un contact sec (ILS) branché entre le GPIO et 3V3, choisir pull-down.
-                Pour une sortie active (collecteur ouvert avec pull-up externe, capteur
-                à effet Hall push-pull...), choisir aucune.
+                Contact sec (ILS) entre le GPIO et GND (câblage par défaut) : pull-up.
+                Le pull-up interne est faible (dizaines de kOhm) : avec un câble long ou
+                dans un environnement bruité, ajouter un pull-up externe de 4,7 à 10 kOhm
+                vers 3V3. Contact vers 3V3 : pull-down, avec "niveau haut" activé.
+                Sortie active (push-pull) ou pull-up externe seul : aucune.
 
             config WC_PULSE_PULL_NONE
                 bool "Aucune"

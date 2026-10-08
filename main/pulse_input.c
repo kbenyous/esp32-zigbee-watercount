@@ -76,8 +76,13 @@ esp_err_t pulse_input_start(const pulse_input_config_t *config, pulse_input_cb_t
     ESP_RETURN_ON_FALSE(xTaskCreate(pulse_task, "pulse", 2560, NULL, configMAX_PRIORITIES - 2, &s_task) == pdPASS,
                         ESP_ERR_NO_MEM, TAG, "task");
 
-    ESP_LOGI(TAG, "Pulse input on GPIO%d, active %s, debounce %lums", config->gpio,
-             config->active_high ? "high" : "low", (unsigned long)config->debounce_ms);
+    static const char *const pulls[] = {
+        [PULSE_INPUT_PULL_NONE] = "no pull",
+        [PULSE_INPUT_PULL_UP] = "pull-up",
+        [PULSE_INPUT_PULL_DOWN] = "pull-down",
+    };
+    ESP_LOGI(TAG, "Pulse input on GPIO%d, active %s, %s, debounce %lums", config->gpio,
+             config->active_high ? "high" : "low", pulls[config->pull], (unsigned long)config->debounce_ms);
     return ESP_OK;
 }
 
