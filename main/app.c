@@ -53,6 +53,12 @@
 #define POWER_FAIL_ACTIVE_LOW false
 #endif
 
+#if CONFIG_WC_LED_COLOR_ORDER_RGB
+#define LED_RGB_ORDER true
+#else
+#define LED_RGB_ORDER false
+#endif
+
 static const char *TAG = "app";
 
 typedef enum {
@@ -489,7 +495,7 @@ esp_err_t app_start(void)
     /* esp_restart() (reset Zigbee, futur OTA...) appelle ce handler avant de redémarrer. */
     ESP_RETURN_ON_ERROR(esp_register_shutdown_handler(persist_now), TAG, "shutdown handler");
 
-    ESP_RETURN_ON_ERROR(led_init(CONFIG_WC_LED_GPIO, CONFIG_WC_LED_BRIGHTNESS), TAG, "led");
+    ESP_RETURN_ON_ERROR(led_init(CONFIG_WC_LED_GPIO, CONFIG_WC_LED_BRIGHTNESS, LED_RGB_ORDER), TAG, "led");
     set_net_state(NET_STARTING);
 
     const zb_device_config_t zb_config = {

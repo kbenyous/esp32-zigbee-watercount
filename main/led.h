@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
 
@@ -22,7 +23,8 @@ typedef struct {
 #define LED_COLOR_GREEN  ((led_color_t){0, 255, 0})
 #define LED_COLOR_BLUE   ((led_color_t){0, 0, 255})
 
-esp_err_t led_init(int gpio, uint8_t max_brightness);
+/** rgb_order : LED attendant l'ordre RGB au lieu du GRB standard du WS2812. */
+esp_err_t led_init(int gpio, uint8_t max_brightness, bool rgb_order);
 
 /** Motif de fond : couleur fixe (LED_COLOR_OFF pour éteindre). */
 void led_set_steady(led_color_t color);

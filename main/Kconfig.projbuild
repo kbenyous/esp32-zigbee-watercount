@@ -65,7 +65,26 @@ menu "Water counter"
             range 0 27
             default 8
             help
-                GPIO8 pilote la LED WS2812 de l'ESP32-H2-DevKitM-1.
+                GPIO8 pilote la LED WS2812 de l'ESP32-H2-DevKitM-1 comme celle du
+                Waveshare ESP32-H2-Zero.
+
+        choice WC_LED_COLOR_ORDER
+            prompt "Ordre des couleurs de la LED"
+            default WC_LED_COLOR_ORDER_GRB
+            help
+                Ordre dans lequel la LED attend les composantes de couleur. Les
+                cartes annoncent toutes une "WS2812", mais certaines utilisent une
+                LED compatible qui attend un autre ordre :
+                  - ESP32-H2-DevKitM-1 (Espressif) : GRB ;
+                  - Waveshare ESP32-H2-Zero : RGB.
+                Pour une autre carte : hors réseau, la LED doit être rouge au
+                démarrage. Si elle est verte, changer d'ordre.
+
+            config WC_LED_COLOR_ORDER_GRB
+                bool "GRB (ESP32-H2-DevKitM-1)"
+            config WC_LED_COLOR_ORDER_RGB
+                bool "RGB (Waveshare ESP32-H2-Zero)"
+        endchoice
 
         config WC_LED_BRIGHTNESS
             int "Luminosité maximale de la LED (1-255)"

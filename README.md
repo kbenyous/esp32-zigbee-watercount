@@ -18,11 +18,16 @@ idf.py build flash monitor
 
 ## Câblage
 
-| Fonction | GPIO (DevKitM-1) | Branchement |
+| Fonction | GPIO | Branchement |
 |---|---|---|
 | Entrée impulsions | GPIO10 | contact du compteur entre GPIO10 et **GND** |
 | Bouton d'appairage | GPIO9 | bouton BOOT de la carte |
 | LED d'état | GPIO8 | LED RGB WS2812 de la carte |
+
+Le brochage est le même sur l'ESP32-H2-DevKitM-1 et le Waveshare
+ESP32-H2-Zero, mais la LED du Zero attend ses couleurs dans l'ordre RGB et non
+GRB : sur le Zero, choisir **RGB** dans *Matériel > Ordre des couleurs de la
+LED* (`WC_LED_COLOR_ORDER`), sinon le rouge et le vert sont inversés.
 
 L'entrée impulsions utilise le **pull-up interne** : au repos le GPIO est à
 l'état haut, la fermeture du contact le tire à GND, et l'impulsion est comptée
