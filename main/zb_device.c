@@ -1,5 +1,12 @@
+#include "sdkconfig.h"
+#if CONFIG_WC_ZB_DEBUG_LOG
+/* ESP_LOGD actifs dans ce fichier sans relever CONFIG_LOG_MAXIMUM_LEVEL pour tout le projet. */
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
+#endif
+
 #include "zb_device.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/param.h>
@@ -12,6 +19,7 @@
 #include "freertos/task.h"
 
 #include "esp_zigbee.h"
+#include "ezbee/platform/log.h"
 #include "ezbee/platform/radio.h"
 #include "ezbee/zha.h"
 
@@ -492,9 +500,87 @@ static void zb_task(void *arg)
 /* API publique                                                              */
 /* ------------------------------------------------------------------------- */
 
+#if CONFIG_WC_ZB_DEBUG_LOG
+#define ZB_STACK_LOG_TAG "ezbee"
+
+/* Remplace l'implémentation faible d'esp-zigbee-lib, qui n'affiche que les erreurs. */
+void ezb_plat_log(ezb_log_level_t log_level, const char *format, ...)
+{
+    if (log_level <= EZB_LOG_LEVEL_NONE) {
+        return;
+    }
+    char line[160];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(line, sizeof(line), format, args);
+    va_end(args);
+    ESP_LOG_LEVEL((esp_log_level_t)log_level, ZB_STACK_LOG_TAG, "%s", line);
+}
+
+/* Fonctions internes d'esp-zigbee-lib 2.0.4, absentes des headers publics. */
+void nwk_disc_table_dump(void);
+void __real_nwk_disc_table_reset(void);
+
+/* La stack vide sa table des parents découverts à la fin de chaque commissioning,
+ * avant de prévenir l'application : on l'affiche juste avant (LQI, permit join).
+ * Branché par -Wl,--wrap=nwk_disc_table_reset, cf. CMakeLists.txt. */
+void __wrap_nwk_disc_table_reset(void)
+{
+    nwk_disc_table_dump();
+    __real_nwk_disc_table_reset();
+}
+#endif
+
+#if CONFIG_WC_ZB_PREFER_BEST_PARENT
+/* Entrée de la table de découverte d'esp-zigbee-lib 2.0.4 (nwk_disc_table.c),
+ * reconstituée par désassemblage ; seuls les champs lus ici sont nommés. */
+typedef struct {
+    uint16_t short_addr; /* adresse du routeur qui a émis le beacon */
+    uint8_t reserved0[6];
+    uint8_t pan_ref;     /* index du PAN dans la table de correspondance de la stack */
+    uint8_t lqa;         /* qualité de lien, comparée au seuil de join */
+    uint8_t reserved1[10];
+} zb_disc_entry_t;
+_Static_assert(sizeof(zb_disc_entry_t) == 20, "esp-zigbee-lib 2.0.4 discovery entry layout");
+
+/* Fonctions internes d'esp-zigbee-lib 2.0.4, absentes des headers publics. */
+const void *nwk_disc_table_next(const void *prev);
+int __real_nwk_join_request(void *req);
+
+/* Parmi les candidats au-dessus du seuil, la stack retient le dernier de sa table,
+ * pas le meilleur. Le choix se fait de façon synchrone dans nwk_join_request : on y
+ * relève le seuil au meilleur LQI du PAN visé (celui de la première entrée, comme
+ * zdo_comm_join), puis on le rétablit. Si l'association échoue, la stack retente
+ * avec le seuil normal, donc avec son choix habituel parmi les entrées restantes.
+ * Branché par -Wl,--wrap=nwk_join_request, cf. CMakeLists.txt. */
+int __wrap_nwk_join_request(void *req)
+{
+    const zb_disc_entry_t *first = nwk_disc_table_next(NULL);
+    const zb_disc_entry_t *best = NULL;
+    for (const zb_disc_entry_t *e = first; e != NULL; e = nwk_disc_table_next(e)) {
+        if (e->pan_ref == first->pan_ref && (best == NULL || e->lqa > best->lqa)) {
+            best = e;
+        }
+    }
+    uint8_t min_lqi = ezb_nwk_get_min_join_lqi();
+    if (best == NULL || best->lqa <= min_lqi) {
+        return __real_nwk_join_request(req);
+    }
+    ESP_LOGI(TAG, "Best parent 0x%04hx, LQI %u", best->short_addr, best->lqa);
+    ezb_nwk_set_min_join_lqi(best->lqa);
+    int ret = __real_nwk_join_request(req);
+    ezb_nwk_set_min_join_lqi(min_lqi);
+    return ret;
+}
+#endif
+
 esp_err_t zb_device_start(const zb_device_config_t *config, uint64_t counter,
                           const zb_device_metering_config_t *metering, zb_device_event_cb_t cb, void *ctx)
 {
+#if CONFIG_WC_ZB_DEBUG_LOG
+    esp_log_level_set(TAG, ESP_LOG_DEBUG);
+    esp_log_level_set(ZB_STACK_LOG_TAG, ESP_LOG_DEBUG);
+#endif
     s_config = *config;
     s_initial_counter = counter;
     s_initial_metering = *metering;

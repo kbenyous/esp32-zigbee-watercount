@@ -240,16 +240,46 @@ Suggestions :
 
 esp-zigbee-lib 2.0.4 ignore, à l'appairage comme au rejoin, les parents dont le
 LQI est inférieur à 75. Or l'ESP32-H2 rapporte des LQI bas : 63 mesuré pour un
-RSSI de -65 dBm (vraisemblablement LQI = RSSI + 128). Avec ce seuil, des parents
-corrects étaient rejetés et le device échouait par intermittence à s'appairer
-ou à se reconnecter après un reset (`status 3`, `NO_NETWORK`). Le firmware
-abaisse le seuil à 40 (environ -88 dBm), réglable dans `menuconfig` :
-*Water counter → Appairage Zigbee → LQI minimal d'un parent*.
+RSSI de -65 dBm, 1 pour -99 dBm. Avec ce seuil, des parents corrects étaient
+rejetés et le device échouait par intermittence à s'appairer ou à se reconnecter
+après un reset (`status 3`, `NO_NETWORK`). Le firmware abaisse le seuil à 40,
+réglable dans `menuconfig` : *Water counter → Appairage Zigbee → LQI minimal
+d'un parent* (0 accepte tout parent capté).
 
-Le LQI et le RSSI des voisins sont journalisés en niveau debug à chaque
-connexion (`CONFIG_LOG_MAXIMUM_LEVEL` à Debug dans `menuconfig`, puis
-`esp_log_level_set("zb_device", ESP_LOG_DEBUG)`). Un RSSI de 127 signifie « pas
-encore mesuré ».
+Ce seuil n'est qu'un filtre. La stack (code d'esp-zigbee-lib 2.0.4 désassemblé :
+`nwk_choose_parent`) ne choisit **ni le premier parent qui répond, ni celui au
+meilleur LQI**. Elle garde les beacons dans une table de 6 entrées ; une fois
+la table pleine, un nouveau beacon remplace l'entrée au plus faible LQI s'il
+fait mieux. À l'appairage, seuls les routeurs en permit join et acceptant un
+end device y entrent ; au rejoin, tous les routeurs du réseau. Elle ne retient
+ensuite que les entrées du réseau visé au LQI supérieur ou égal au seuil, et
+prend celle au `nwkUpdateId` le plus récent, et à égalité, cas normal sur un
+seul réseau, **la dernière de la table**. Constaté sur un ESP32-H2-Zero : six
+routeurs captés (LQI 0 à 28), parent choisi le coordinateur à LQI 1 (-99 dBm),
+suivi d'échecs de data poll (`0xe9`, pas d'acquittement MAC).
+
+D'où l'option *Choisir le parent au meilleur LQI* (`WC_ZB_PREFER_BEST_PARENT`,
+activée par défaut). Au moment du choix, le firmware relève le seuil au
+meilleur LQI de la table, ce qui ne laisse que ce candidat, puis le rétablit
+aussitôt. Si l'association avec ce parent échoue, la stack se rabat sur son
+choix habituel. Le parent retenu est journalisé (`Best parent 0x…`).
+
+Un end device ne change jamais de parent tant qu'il est connecté : pour en
+changer, relancer l'appairage (appui long sur BOOT).
+
+**Journaux de debug** : *Water counter → Appairage Zigbee → Journaux de debug
+Zigbee* (`WC_ZB_DEBUG_LOG`) active :
+
+- le niveau debug du module `zb_device` : LQI et RSSI des voisins à chaque
+  connexion (un RSSI de 127 signifie « pas encore mesuré ») ;
+- les messages internes d'esp-zigbee-lib (tag `ezbee`), qui par défaut
+  n'affiche que ses erreurs ;
+- à la fin de chaque recherche de réseau, réussie ou non, la table des parents
+  découverts (`Dump NWK Discovery Table`), avec pour chacun le PAN, l'adresse,
+  le canal, la valeur `lqa` comparée au seuil et le permit join.
+
+Le dernier point appelle des fonctions internes de la lib, branchées au link par
+`--wrap` : à revérifier lors d'une montée de version d'esp-zigbee-lib.
 
 ## Stockage
 

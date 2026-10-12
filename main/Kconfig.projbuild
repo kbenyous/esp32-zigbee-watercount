@@ -144,10 +144,43 @@ menu "Water counter"
             help
                 Seuil sous lequel la stack ignore un parent potentiel pendant l'appairage
                 ou le rejoin. La valeur par défaut d'esp-zigbee-lib 2.0.4 est 75, mais
-                l'ESP32-H2 rapporte des LQI bas : mesuré LQI 63 pour un RSSI de -65 dBm,
-                soit vraisemblablement LQI = RSSI + 128. Avec 75, des parents corrects
-                étaient rejetés et l'appairage comme le rejoin échouaient par intermittence.
-                40 correspond à environ -88 dBm. -1 garde la valeur de la lib.
+                l'ESP32-H2 rapporte des LQI bas (mesuré : LQI 63 pour -65 dBm, LQI 1
+                pour -99 dBm). Avec 75, des parents corrects étaient rejetés et
+                l'appairage comme le rejoin échouaient par intermittence. -1 garde la
+                valeur de la lib, 0 accepte tout parent capté.
+
+                Ce seuil n'est qu'un filtre : seul, il ne fait pas choisir le meilleur
+                parent (voir "Choisir le parent au meilleur LQI").
+
+        config WC_ZB_PREFER_BEST_PARENT
+            bool "Choisir le parent au meilleur LQI"
+            default y
+            help
+                Parmi les parents qui passent le seuil, esp-zigbee-lib 2.0.4 retient
+                le dernier de sa table de découverte, quel que soit son LQI : il peut
+                choisir un parent à -99 dBm alors qu'un routeur proche est disponible.
+
+                Activé : au moment du choix, le seuil est relevé au meilleur LQI de la
+                table, ce qui ne laisse que le meilleur candidat, puis rétabli aussitôt.
+                Si l'association avec ce parent échoue, la stack se rabat sur son choix
+                habituel. Vaut pour l'appairage comme pour le rejoin.
+
+                S'appuie sur des fonctions internes d'esp-zigbee-lib 2.0.4 (interception
+                de nwk_join_request au link) : à revérifier en cas de montée de version.
+
+        config WC_ZB_DEBUG_LOG
+            bool "Journaux de debug Zigbee"
+            default n
+            help
+                Pour diagnostiquer un appairage ou un rejoin qui échoue :
+                  - niveau debug pour le module zb_device (LQI et RSSI des voisins
+                    une fois connecté) ;
+                  - messages internes d'esp-zigbee-lib (tag "ezbee"), qui par
+                    défaut n'affiche que ses erreurs ;
+                  - à la fin de chaque recherche de réseau, la table des parents
+                    découverts : PAN, adresse, canal, LQI et permit join.
+                Le dernier point s'appuie sur des fonctions internes
+                d'esp-zigbee-lib 2.0.4 : à revérifier en cas de montée de version.
 
     endmenu
 
