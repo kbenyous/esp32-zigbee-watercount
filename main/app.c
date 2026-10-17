@@ -264,11 +264,13 @@ static void load_config(void)
 
 static void apply_config(void)
 {
+    /* Attributs ZCL d'abord : le contrôleur relit Multiplier / Divisor juste après
+     * son écriture, et l'enregistrement NVS peut prendre plusieurs millisecondes. */
+    zb_device_metering_config_t metering = metering_config();
+    zb_device_set_metering_config(&metering);
     if (storage_save_config(&s_config) != ESP_OK) {
         ESP_LOGE(TAG, "Cannot persist configuration");
     }
-    zb_device_metering_config_t metering = metering_config();
-    zb_device_set_metering_config(&metering);
 }
 
 /* ------------------------------------------------------------------------- */

@@ -79,7 +79,7 @@ led.c           LED RGB : motif de fond + flash superposé
 storage.c       NVS (namespace "watercount") + shadow du compteur en mémoire RTC
 power_fail.c    détection optionnelle de coupure d'alimentation
 zb_device.c     stack Zigbee : modèle ZCL, signaux, écritures d'attributs
-z2m/            convertisseur externe Zigbee2MQTT
+z2m/            modèle du convertisseur externe Zigbee2MQTT
 ```
 
 Les modules ne se connaissent pas entre eux. Chacun signale ses évènements par
@@ -166,7 +166,13 @@ Le convertisseur est **indispensable** : sans lui, Zigbee2MQTT génère une
 définition automatique, et pour tout cluster `seMetering` il applique son modèle
 de compteur électrique (`power`, `energy`), sans lire `MeteringDeviceType`.
 
-Installation de `z2m/watercounter.js` (format CommonJS, compatible 1.x et 2.x) :
+Le build génère **`build/z2m/watercounter.js`** depuis le modèle
+`z2m/watercounter.js.in`, avec les valeurs de `menuconfig` : ManufacturerName,
+ModelIdentifier, code fabricant et endpoint. Firmware et convertisseur ne peuvent
+donc pas diverger ; après un changement d'identité, recompiler et recopier le
+fichier généré.
+
+Installation de `build/z2m/watercounter.js` (format CommonJS, compatible 1.x et 2.x) :
 
 - **Zigbee2MQTT 2.x** : le copier dans le dossier `external_converters/` (à côté
   de `configuration.yaml`) ;
@@ -215,7 +221,7 @@ sauf mention contraire.
 | `SWBuildID` | Basic `0x4000`, version de l'app (`git describe` ou `PROJECT_VER`) | affiché par Z2M et HA comme version du firmware |
 | `ApplicationVersion`, `HWVersion` | Basic `0x0001`, `0x0003` | informatif |
 | `SerialNumber` | Basic `0x000D`, calculé : EUI-64 de la puce | informatif ; unique sans rien configurer |
-| Code fabricant | node descriptor + attributs de config | ne s'affiche nulle part ; doit être identique dans le firmware et le convertisseur ; servira aussi aux images OTA |
+| Code fabricant | node descriptor + attributs de config | ne s'affiche nulle part ; reporté dans le convertisseur généré ; servira aussi aux images OTA |
 | Device ID `0x0053` | simple descriptor (`zb_device.c`) | ZHA et les contrôleurs génériques ; Z2M l'ignore |
 | Adresse IEEE | puce | identifiant réseau ; nom par défaut dans Z2M |
 
@@ -224,11 +230,10 @@ convertisseur (`vendor`, `description`), pas du device.
 
 Suggestions :
 
-- `ModelIdentifier` : court, ASCII, sans espace, stable : `WaterCounter-H2` ou
+- `ModelIdentifier` : court, ASCII, sans espace, stable : `WaterCounter` ou
   une référence maison du type `KB-WMC1`. N'en changer que si le modèle ZCL
   devient incompatible, par exemple `KB-WMC2`.
-- `ManufacturerName` : un nom de « marque » DIY stable (`DIY` est une valeur
-  provisoire).
+- `ManufacturerName` : un nom de « marque » stable (`Kaben corp.`).
   Éviter de se faire passer pour un vrai fabricant : Z2M pourrait choisir son
   convertisseur.
 - Code fabricant : garder `0x131B` (Espressif), l'usage courant pour un device

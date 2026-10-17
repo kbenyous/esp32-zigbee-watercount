@@ -3,8 +3,10 @@
 // Format CommonJS : chargé tel quel par Zigbee2MQTT 2.x (dossier
 // external_converters/) comme par 1.x (clé external_converters de
 // configuration.yaml). Redémarrer Zigbee2MQTT après l'avoir copié.
-// Les constantes ci-dessous doivent correspondre au menuconfig du firmware
-// (menu "Water counter" > "Identité Zigbee").
+//
+// Le build produit build/z2m/watercounter.js depuis le modèle z2m/watercounter.js.in,
+// en y reportant les valeurs de menuconfig (menu "Water counter" > "Identité Zigbee").
+// Modifier le modèle ; copier dans Zigbee2MQTT le fichier généré.
 //
 // Entités exposées :
 //  - water_consumed   : volume total (L ou m³ selon la configuration), mappé par
@@ -17,10 +19,10 @@ const {Zcl} = require('zigbee-herdsman');
 const exposes = require('zigbee-herdsman-converters/lib/exposes');
 const reporting = require('zigbee-herdsman-converters/lib/reporting');
 
-const MANUFACTURER_NAME = 'DIY';
-const MODEL_IDENTIFIER = 'WaterCounter-H2';
-const MANUFACTURER_CODE = 0x131b;
-const ENDPOINT = 1;
+const MANUFACTURER_NAME = @Z2M_MANUFACTURER_NAME@;
+const MODEL_IDENTIFIER = @Z2M_MODEL_IDENTIFIER@;
+const MANUFACTURER_CODE = @CONFIG_WC_ZB_MANUFACTURER_CODE@;
+const ENDPOINT = @CONFIG_WC_ZB_ENDPOINT@;
 
 const ATTR_UNIT = 0xf000;
 const ATTR_PULSE_VOLUME = 0xf001;

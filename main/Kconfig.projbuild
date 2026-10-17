@@ -188,17 +188,18 @@ menu "Water counter"
 
         config WC_ZB_MANUFACTURER_NAME
             string "ManufacturerName (cluster Basic, 32 caractères max)"
-            default "DIY"
+            default "Kaben corp."
             help
-                Valeur provisoire. Avec ModelIdentifier, c'est ce que Zigbee2MQTT utilise pour reconnaître
-                le device et choisir son convertisseur.
+                Fabricant affiché par Zigbee2MQTT. Reporté dans le convertisseur
+                généré au build (build/z2m/watercounter.js).
 
         config WC_ZB_MODEL_IDENTIFIER
             string "ModelIdentifier (cluster Basic, 32 caractères max)"
-            default "WaterCounter-H2"
+            default "WaterCounter"
             help
                 Doit rester stable dans le temps : c'est la clé de correspondance
-                (zigbeeModel) du convertisseur Zigbee2MQTT.
+                (zigbeeModel) du convertisseur Zigbee2MQTT, généré au build avec
+                cette valeur (build/z2m/watercounter.js).
 
         config WC_ZB_HW_VERSION
             int "HWVersion (cluster Basic)"
@@ -217,8 +218,8 @@ menu "Water counter"
             help
                 0x131B est le code d'Espressif (EZB_ZCL_ESP_MANUF_CODE dans
                 ezbee/zcl/zcl_type.h). Il sert aussi de code fabricant
-                pour les attributs de configuration manufacturer-specific : le
-                convertisseur Zigbee2MQTT doit utiliser la même valeur.
+                pour les attributs de configuration manufacturer-specific, et il
+                est reporté dans le convertisseur Zigbee2MQTT généré au build.
 
         config WC_ZB_ENDPOINT
             int "Endpoint Zigbee"
